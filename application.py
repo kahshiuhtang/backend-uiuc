@@ -9,7 +9,9 @@ application = Flask(__name__)
 CORS(application)
 logging.basicConfig(level=logging.INFO)
 
-#Endpoint: Health Check
+# Endpoint: Health Check
+
+
 @application.route('/health', methods=['GET'])
 def health():
     """
@@ -17,7 +19,9 @@ def health():
     """
     return jsonify({"status": "healthy"}), 200
 
-#Endpoint: Data Insertion
+# Endpoint: Data Insertion
+
+
 @application.route('/events', methods=['POST'])
 def create_event():
     """
@@ -42,7 +46,9 @@ def create_event():
             "detail": str(e)
         }), 500
 
-#Endpoint: Data Retrieval
+# Endpoint: Data Retrieval
+
+
 @application.route('/data', methods=['GET'])
 def get_data():
     """
@@ -61,6 +67,7 @@ def get_data():
             "error": "During data retrieval",
             "detail": str(e)
         }), 500
+
 
 def get_db_connection():
     """
@@ -88,6 +95,7 @@ def get_db_connection():
     except OperationalError as e:
         raise ConnectionError(f"Failed to connect to the database: {e}")
 
+
 def create_db_table():
     connection = get_db_connection()
     try:
@@ -110,26 +118,59 @@ def create_db_table():
         logging.exception("Failed to create or verify the events table")
         raise RuntimeError(f"Table creation failed: {str(e)}")
 
+
 def insert_data_into_db(payload):
     """
-    Stub for database communication.
-    Implement this function to insert the data into the database.
-    NOTE: Our autograder will automatically insert data into the DB automatically keeping in mind the explained SCHEMA, you dont have to insert your own data.
+    Inserts title, description, image_url, date, and location into the events table.
     """
+    # Ensure the table exists before attempting insertion
     create_db_table()
-    # TODO: Implement the database call    
-    
-    raise NotImplementedError("Database insert function not implemented.")
 
-#Database Function Stub
+    connection = get_db_connection()
+    try:
+        with connection.cursor() as cursor:
+            sql = """
+            INSERT INTO events (title, description, image_url, date, location)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            # Extract values from payload, using .get() for optional fields to avoid KeyErrors
+            values = (
+                payload.get('title'),
+                payload.get('description'),
+                payload.get('image_url'),
+                payload.get('date'),
+                payload.get('location')
+            )
+            cursor.execute(sql, values)
+        connection.commit()
+        logging.info("Data inserted successfully")
+    except Exception as e:
+        logging.exception("Failed to insert data into the database")
+        raise e
+    finally:
+        connection.close()
+# Database Function Stub
+
+
 def fetch_data_from_db():
     """
-    Stub for database communication.
-    Implement this function to fetch your data from the database.
+    Selects all rows and columns from the events table, 
+    returning them in ascending order of date.
     """
-    # TODO: Implement the database call
-    
-    raise NotImplementedError("Database fetch function not implemented.")
+    connection = get_db_connection()
+    try:
+        # Using DictCursor so rows are returned as dictionaries (e.g., {'title': 'Music Festival', ...})
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = "SELECT * FROM events ORDER BY date ASC"
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            return result
+    except Exception as e:
+        logging.exception("Failed to fetch data from the database")
+        raise e
+    finally:
+        connection.close()
+
 
 if __name__ == '__main__':
     application.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
